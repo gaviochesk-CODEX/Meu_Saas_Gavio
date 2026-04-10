@@ -5,18 +5,47 @@ import { useState } from "react";
 export function SaaSGenerator() {
   const [inputValue, setInputValue] = useState("");
   const [response, setResponse] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  function handleGenerate() {
+  async function handleGenerate() {
     const trimmedValue = inputValue.trim();
 
     if (!trimmedValue) {
-      setResponse("Digite algo para gerar uma resposta simulada.");
+      setError("Digite algo para gerar uma resposta.");
+      setResponse("");
       return;
     }
 
-    setResponse(
-      `Resposta simulada: criamos uma sugestao personalizada para "${trimmedValue}".`
-    );
+    setIsLoading(true);
+    setError("");
+    setResponse("");
+
+    try {
+      const apiResponse = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt: trimmedValue })
+      });
+
+      const data = (await apiResponse.json()) as {
+        error?: string;
+        text?: string;
+      };
+
+      if (!apiResponse.ok) {
+        setError(data.error ?? "Nao foi possivel gerar a resposta.");
+        return;
+      }
+
+      setResponse(data.text ?? "");
+    } catch {
+      setError("Erro de conexao ao chamar o backend.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -29,8 +58,8 @@ export function SaaSGenerator() {
           Meu SaaS
         </h1>
         <p className="text-base leading-7 text-slate-600">
-          Insira um texto abaixo e simule a geracao de uma resposta para o seu
-          produto.
+          Insira um texto abaixo e gere uma resposta usando a API da OpenAI com
+          seguranca no backend.
         </p>
       </div>
 
@@ -45,19 +74,23 @@ export function SaaSGenerator() {
         <button
           type="button"
           onClick={handleGenerate}
-          className="h-12 rounded-2xl bg-brand-600 px-6 text-base font-medium text-white transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-100"
+          disabled={isLoading}
+          className="h-12 rounded-2xl bg-brand-600 px-6 text-base font-medium text-white transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-brand-500"
         >
-          Gerar
+          {isLoading ? "Gerando..." : "Gerar"}
         </button>
       </div>
 
       <div className="mt-6 min-h-24 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-medium text-slate-500">Resposta</p>
-        <p className="mt-2 text-base leading-7 text-slate-700">
-          {response || "A resposta simulada aparecera aqui apos clicar em Gerar."}
-        </p>
+        {error ? (
+          <p className="mt-2 text-base leading-7 text-red-600">{error}</p>
+        ) : (
+          <p className="mt-2 text-base leading-7 text-slate-700">
+            {response || "A resposta gerada aparecera aqui apos clicar em Gerar."}
+          </p>
+        )}
       </div>
     </div>
   );
 }
-
